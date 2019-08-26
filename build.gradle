@@ -16,7 +16,7 @@ repositories {
 }
 
 shadowJar {
-    archivesBaseName = 'list-java-methods'
+    archivesBaseName = 'list-used-methods'
     archiveClassifier = null
     version = null
 }
