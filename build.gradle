@@ -1,0 +1,28 @@
+plugins {
+    id "java"
+    id "application"
+    id "com.github.johnrengelman.shadow" version "5.1.0"
+}
+
+group = "com.atomist.javatooling"
+version = "1.0.0-SNAPSHOT"
+
+mainClassName = "com.atomist.javatooling.listusedmethods.Main"
+targetCompatibility = 1.8
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+shadowJar {
+    archivesBaseName = 'list-java-methods'
+    archiveClassifier = null
+    version = null
+}
+
+dependencies {
+    implementation "com.github.javaparser:javaparser-symbol-solver-core:3.14.11"
+    implementation "com.github.pcj:google-options:1.0.0"
+    implementation 'ch.qos.logback:logback-classic:1.2.3'
+}
