@@ -4,8 +4,9 @@ import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
@@ -15,6 +16,8 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeS
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,12 +47,32 @@ public class Main {
 			printUsage(parser);
 		} else {
 			JavaParser javaParser = getJavaParser(arguments);
-			getJavaFiles(arguments.path + File.separator + arguments.sourceSubfolder,
-					arguments.path + File.separator + arguments.testSourceSubfolder)
-					.stream()
-					.flatMap(file -> getUsedMethods(javaParser, file).stream())
-					.collect(Collectors.toCollection(TreeSet::new))
-					.forEach(logger::info);
+			List<String> sourceFiles;
+			if(arguments.files.isEmpty()) {
+				sourceFiles = getJavaFiles(arguments.path + File.separator + arguments.sourceSubfolder,
+						arguments.path + File.separator + arguments.testSourceSubfolder);
+			} else {
+				sourceFiles = Arrays.asList(arguments.files.split("[,]"));
+			}
+			UsedApi usedApi = sourceFiles.stream()
+					.map(file -> {
+						try {
+							ParseResult<CompilationUnit> parseResult = javaParser.parse(new File(file));
+							if (parseResult.isSuccessful()) {
+								Set<String> usedMethods = getUsedMethods(parseResult.getResult());
+								Set<String> usedClasses = getUsedClasses(parseResult.getResult());
+								Set<String> usedAnnotations = getUsedAnnotations(parseResult.getResult());
+								return new UsedApi(usedMethods, usedClasses, usedAnnotations);
+							} else {
+								return new UsedApi();
+							}
+						} catch(IOException e) {
+							return new UsedApi();
+						}
+					})
+					.reduce(new UsedApi(), UsedApi::merge);
+			Gson gson = new GsonBuilder().setPrettyPrinting().create();
+			logger.info(gson.toJson(usedApi));
 		}
 	}
 
@@ -87,6 +110,7 @@ public class Main {
 
 		ParserConfiguration configuration = new ParserConfiguration();
 		configuration.setSymbolResolver(new JavaSymbolSolver(combinedSolver));
+		configuration.setLexicalPreservationEnabled(true);
 		return new JavaParser(configuration);
 	}
 
@@ -99,27 +123,46 @@ public class Main {
 		}
 	}
 
-	private static Collection<String> getUsedMethods(JavaParser javaParser, String file) {
-		try {
-			ParseResult<CompilationUnit> parseResult = javaParser.parse(new File(file));
-			if (parseResult.isSuccessful()) {
-				return parseResult.getResult().map(r -> r.findAll(MethodCallExpr.class).stream()
-							.map(m -> {
-								try {
-									return m.resolve().getQualifiedSignature();
-								} catch (RuntimeException ignored) {
-									return null;
-								}
-							})
-							.filter(Objects::nonNull)
-							.collect(Collectors.toSet())
-				).orElse(Sets.newHashSet());
-			} else {
-				return Lists.newArrayList();
-			}
-		} catch(IOException e) {
-			return Lists.newArrayList();
-		}
+	private static Set<String> getUsedMethods(Optional<CompilationUnit> parseResult) {
+			return parseResult.map(r -> r.findAll(MethodCallExpr.class).stream()
+						.map(m -> {
+							try {
+								return m.resolve().getQualifiedSignature();
+							} catch (RuntimeException ignored) {
+								return null;
+							}
+						})
+						.filter(Objects::nonNull)
+						.collect(Collectors.toSet())
+			).orElse(Sets.newHashSet());
+	}
+
+	private static Set<String> getUsedAnnotations(Optional<CompilationUnit> parseResult) {
+		return parseResult.map(r -> r.findAll(AnnotationExpr.class).stream()
+				.map(m -> {
+					try {
+						return m.resolve().getQualifiedName();
+					} catch (RuntimeException ignored) {
+						return null;
+					}
+				})
+				.filter(Objects::nonNull)
+				.collect(Collectors.toSet())
+		).orElse(Sets.newHashSet());
+	}
+
+	private static Set<String> getUsedClasses(Optional<CompilationUnit> parseResult) {
+		return parseResult.map(r -> r.findAll(ClassOrInterfaceType.class).stream()
+				.map(m -> {
+					try {
+						return m.resolve().getQualifiedName();
+					} catch (RuntimeException ignored) {
+						return null;
+					}
+				})
+				.filter(Objects::nonNull)
+				.collect(Collectors.toSet())
+		).orElse(Sets.newHashSet());
 	}
 
 	private static List<String> getJavaFiles(String... paths) {

@@ -15,6 +15,15 @@ public class CliArguments extends OptionsBase {
 	public String path;
 
 	@Option(
+			name = "files",
+			abbrev = 'f',
+			help = "Set the specific sourcefiles",
+			category = "parser",
+			defaultValue = ""
+	)
+	public String files;
+
+	@Option(
 			name = "srcFolder",
 			abbrev = 's',
 			help = "Set the source subfolder",

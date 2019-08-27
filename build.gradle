@@ -7,7 +7,7 @@ plugins {
 group = "com.atomist.javatooling"
 version = "1.0.0-SNAPSHOT"
 
-mainClassName = "com.atomist.javatooling.listusedmethods.Main"
+mainClassName = "com.atomist.javatooling.listusedapi.Main"
 targetCompatibility = 1.8
 sourceCompatibility = 1.8
 
@@ -16,7 +16,7 @@ repositories {
 }
 
 shadowJar {
-    archivesBaseName = 'list-used-methods'
+    archivesBaseName = 'list-used-api'
     archiveClassifier = null
     version = null
 }
@@ -24,5 +24,6 @@ shadowJar {
 dependencies {
     implementation "com.github.javaparser:javaparser-symbol-solver-core:3.14.11"
     implementation "com.github.pcj:google-options:1.0.0"
+    implementation 'com.google.code.gson:gson:2.8.5'
     implementation "ch.qos.logback:logback-classic:1.2.3"
 }
