@@ -3,7 +3,8 @@ package com.atomist.javatooling.listusedmethods;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 
-class CliArguments extends OptionsBase {
+public class CliArguments extends OptionsBase {
+
 	@Option(
 			name = "path",
 			abbrev = 'p',
@@ -11,7 +12,7 @@ class CliArguments extends OptionsBase {
 			category = "parser",
 			defaultValue = ""
 	)
-	String path;
+	public String path;
 
 	@Option(
 			name = "srcFolder",
@@ -20,7 +21,16 @@ class CliArguments extends OptionsBase {
 			category = "parser",
 			defaultValue = "src/main/java"
 	)
-	String sourceSubfolder;
+	public String sourceSubfolder;
+
+	@Option(
+			name = "testFolder",
+			abbrev = 't',
+			help = "Set the test source subfolder",
+			category = "parser",
+			defaultValue = "src/test/java"
+	)
+	public String testSourceSubfolder;
 
 	@Option(
 			name = "build",
@@ -29,14 +39,5 @@ class CliArguments extends OptionsBase {
 			category = "parser",
 			defaultValue = "gradle"
 	)
-	String build;
-
-	@Option(
-			name = "scope",
-			abbrev = 'p',
-			help = "Set the classpath scope of the scan (test or compile)",
-			category = "parser",
-			defaultValue = "compile"
-	)
-	String scope;
+	public String build;
 }

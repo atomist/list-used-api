@@ -16,7 +16,7 @@ public class GradleClassPathResolver implements ClasspathResolver {
 				"\tapply plugin: \"java\"\n" +
 				"\ttask listCompilePath(dependsOn: configurations.compileClasspath) {\n" +
 				"\t\tdoLast {\n" +
-				"\t\t\tprintln \"classpath=${configurations." + configuration + "Classpath.collect { File file -> file }.join(';')}\"\n" +
+				"\t\t\tprintln \"classpath=${configurations." + configuration + ".collect { File file -> file }.join(';')}\"\n" +
 				"\t\t}\n" +
 				"\t}\n" +
 				"}\n";
@@ -24,12 +24,7 @@ public class GradleClassPathResolver implements ClasspathResolver {
 
 	@Override
 	public Collection<String> resolveCompileClasspath(String projectPath) {
-		return getDependencies(projectPath, "compile");
-	}
-
-	@Override
-	public Collection<String> resolveTestCompileClasspath(String projectPath) {
-		return getDependencies(projectPath, "testCompile");
+		return getDependencies(projectPath, "testCompileClasspath");
 	}
 
 	private Collection<String> getDependencies(String path, String configuration) {

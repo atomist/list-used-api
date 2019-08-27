@@ -2,4 +2,4 @@ build
 .gradle
 .idea
 out
-javaparser-test.iml
+*.iml

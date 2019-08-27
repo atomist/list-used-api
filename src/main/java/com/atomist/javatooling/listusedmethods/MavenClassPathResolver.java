@@ -13,11 +13,6 @@ public class MavenClassPathResolver implements ClasspathResolver {
 		return getDependencies(projectPath);
 	}
 
-	@Override
-	public Collection<String> resolveTestCompileClasspath(String projectPath) {
-		return getDependencies(projectPath);
-	}
-
 	private static Collection<String> getDependencies(String path) {
 		try {
 			File tempOutput = File.createTempFile("mvnClasspath", ".txt");
