@@ -7,7 +7,7 @@
             </Pattern>
         </layout>
     </appender>
-    <logger name="com.atomist.javatooling.listusedmethods" level="info" additivity="false">
+    <logger name="com.atomist.javatooling.listusedapi" level="info" additivity="false">
         <appender-ref ref="CONSOLE"/>
     </logger>
     <root level="error">

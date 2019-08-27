@@ -1,4 +1,4 @@
-package com.atomist.javatooling.listusedmethods;
+package com.atomist.javatooling.listusedapi;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
@@ -28,7 +28,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class Main {
-	private static final Logger logger = LoggerFactory.getLogger("com.atomist.javatooling.listusedmethods");
+	private static final Logger logger = LoggerFactory.getLogger("com.atomist.javatooling.listusedapi");
 
 	private static class ListUsedJavaMethodsException extends RuntimeException {
 		ListUsedJavaMethodsException(Throwable cause) {

@@ -1,4 +1,4 @@
-package com.atomist.javatooling.listusedmethods;
+package com.atomist.javatooling.listusedapi;
 
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;

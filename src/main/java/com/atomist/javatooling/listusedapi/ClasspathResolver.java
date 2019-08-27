@@ -1,4 +1,4 @@
-package com.atomist.javatooling.listusedmethods;
+package com.atomist.javatooling.listusedapi;
 
 import java.util.Collection;
 

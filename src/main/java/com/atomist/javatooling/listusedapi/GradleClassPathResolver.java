@@ -1,4 +1,4 @@
-package com.atomist.javatooling.listusedmethods;
+package com.atomist.javatooling.listusedapi;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
