@@ -1,2 +1,2 @@
-Java tool to list used methods in Java source code
---------------------------------------------------
+Java tool to list used API in Java source code
+----------------------------------------------
