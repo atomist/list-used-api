@@ -1,5 +1,6 @@
 package com.atomist.javatooling.listusedapi
 
+import com.atomist.javatooling.listusedapi.parsing.UsedApiLocator
 import com.atomist.javatooling.listusedapi.parsing.UsedApiParser
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.default
@@ -8,6 +9,7 @@ import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.choice
 import com.google.gson.GsonBuilder
 import org.slf4j.LoggerFactory
+import java.io.File
 
 import java.util.*
 
@@ -22,12 +24,42 @@ class ListUsedApi : CliktCommand() {
     val build: String by option(help = "Build system").choice("gradle", "maven").default("gradle")
     val files: String? by option(help = "Specific files")
     val languageLevel: String by option(help = "Language level").choice("8", "9", "10", "11", "12", "13").default("8")
+    val definitions: String? by option(help = "JSON file with definition to look for")
+    val outputFile: String? by option(help = "Output file name")
 
     override fun run() {
-        val usedApiParser = UsedApiParser(path, srcFolder, testSourceFolder, build, files, languageLevel)
-        val usedApi = usedApiParser.parse();
         val gson = GsonBuilder().setPrettyPrinting().create()
-        logger.info(gson.toJson(usedApi))
+        if(definitions != null && definitions!!.isNotEmpty()) {
+            val usedApiLocator = UsedApiLocator(path, srcFolder, testSourceFolder, build, files, languageLevel, definitions!!)
+            val api = usedApiLocator.locate();
+            if (outputFile != null && outputFile!!.isNotEmpty()) {
+                val output = File(outputFile!!);
+                if (!output.exists()) {
+                    output.createNewFile();
+                } else {
+                    output.delete();
+                    output.createNewFile();
+                }
+                output.writeText(gson.toJson(api))
+            } else {
+                logger.info(gson.toJson(api))
+            }
+        } else {
+            val usedApiParser = UsedApiParser(path, srcFolder, testSourceFolder, build, files, languageLevel)
+            val usedApi = usedApiParser.parse();
+            if (outputFile != null && outputFile!!.isNotEmpty()) {
+                val output = File(outputFile!!);
+                if (!output.exists()) {
+                    output.createNewFile();
+                } else {
+                    output.delete();
+                    output.createNewFile();
+                }
+                output.writeText(gson.toJson(usedApi))
+            } else {
+                logger.info(gson.toJson(usedApi))
+            }
+        }
     }
 }
 

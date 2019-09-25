@@ -15,36 +15,41 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSol
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JarTypeSolver
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver
+import com.google.gson.Gson
 import java.io.File
 import java.io.IOException
 
-class UsedApiParser(val path: String,
-                    val sourcePath: String,
-                    val testSourcePath: String,
-                    val build: String,
-                    val files: String?,
-                    val languageLevel: String) {
-    fun parse(): ApiDefinition {
+class UsedApiLocator(val path: String,
+                     val sourcePath: String,
+                     val testSourcePath: String,
+                     val build: String,
+                     val files: String?,
+                     val languageLevel: String,
+                     val definitionsFile: String) {
+    fun locate(): Set<String> {
         val javaParser = getJavaParser(languageLevel);
         val sourceFiles: List<String> = files?.split(",") ?: getJavaFiles(path + File.separator + sourcePath,
                     path + File.separator + testSourcePath)
+        val definitionsFile = File(definitionsFile)
+        val definitions = Gson().fromJson<ApiDefinition>(definitionsFile.readText(), ApiDefinition::class.java)
         return sourceFiles
                 .map { file ->
                     try {
                         val parseResult = javaParser.parse(File(file))
-                        if (parseResult.isSuccessful) {
-                            val usedMethods = getUsedMethods(parseResult.result.toNullable())
-                            val usedClasses = getUsedClasses(parseResult.result.toNullable())
-                            val usedAnnotations = getUsedAnnotations(parseResult.result.toNullable())
-                            ApiDefinition(usedMethods, usedClasses, usedAnnotations)
+                        return@map if (parseResult.isSuccessful) {
+                            val relativeFileName = file.substring(path.length + 1)
+                            val usedMethods = findMethodUsage(definitions.methods, parseResult.result.toNullable(), relativeFileName)
+                            val usedClasses = findClassUsage(definitions.classes, parseResult.result.toNullable(), relativeFileName)
+                            val usedAnnotations = findAnnotationUsage(definitions.annotations, parseResult.result.toNullable(), relativeFileName)
+                            usedMethods.union(usedClasses).union(usedAnnotations)
                         } else {
-                            ApiDefinition(setOf(), setOf(), setOf())
+                            setOf()
                         }
                     } catch (e: IOException) {
-                        ApiDefinition(setOf(), setOf(), setOf())
+                        setOf<String>()
                     }
                 }
-                .reduce({ a, b -> a.merge(b) })
+                .reduce { a, b -> a.union(b) }
     }
 
     private fun getJavaParser(languageLevel: String): JavaParser {
@@ -77,41 +82,32 @@ class UsedApiParser(val path: String,
         return JavaParser(configuration)
     }
 
-    private fun getUsedMethods(parseResult: CompilationUnit?) =
-            parseResult?.findAll(MethodCallExpr::class.java)
-                    ?.map {
-                        try {
-                            it.resolve().qualifiedSignature
-                        } catch(e: Exception) {
-                            null
-                        }
-                    }
-                    ?.filterNotNull()
-                    ?.toSet() ?: setOf()
+    private fun findMethodUsage(methods: Set<String>, parseResult: CompilationUnit?, relativeFileName: String): Set<String> {
+        val m = parseResult?.findAll(MethodCallExpr::class.java) ?: listOf()
+        return m.filter { try {  methods.contains(it.resolve().qualifiedSignature) } catch (e: Exception) { false } }
+                .map {
+                    "$relativeFileName:${it.range.get().begin.line}"
+                }
+                .toSet()
+    }
 
-    private fun getUsedAnnotations(parseResult: CompilationUnit?) =
-            parseResult?.findAll(AnnotationExpr::class.java)
-                    ?.map {
-                        try {
-                            it.resolve().qualifiedName
-                        } catch(e: Exception) {
-                            null
-                        }
-                    }
-                    ?.filterNotNull()
-                    ?.toSet() ?: setOf()
+    private fun findAnnotationUsage(annotations: Set<String>, parseResult: CompilationUnit?, relativeFileName: String): Set<String> {
+        val a = parseResult?.findAll(AnnotationExpr::class.java) ?: listOf()
+        return a.filter { try {  annotations.contains(it.resolve().qualifiedName) } catch (e: Exception) { false } }
+                .map {
+                    "$relativeFileName:${it.range.get().begin.line}"
+                }
+                .toSet()
+    }
 
-    private fun getUsedClasses(parseResult: CompilationUnit?) =
-            parseResult?.findAll(ClassOrInterfaceType::class.java)
-                    ?.map {
-                        try {
-                            it.resolve().qualifiedName
-                        } catch(e: Exception) {
-                            null
-                        }
-                    }
-                    ?.filterNotNull()
-                    ?.toSet() ?: setOf()
+    private fun findClassUsage(classes: Set<String>, parseResult: CompilationUnit?, relativeFileName: String): Set<String> {
+        val a = parseResult?.findAll(ClassOrInterfaceType::class.java) ?: listOf()
+        return a.filter { try {  classes.contains(it.resolve().qualifiedName) } catch (e: Exception) { false } }
+                .map {
+                    "$relativeFileName:${it.range.get().begin.line}"
+                }
+                .toSet()
+    }
 
     private fun getJavaFiles(vararg paths: String): List<String> {
         val files = mutableListOf<String>()
