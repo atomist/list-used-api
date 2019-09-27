@@ -8,6 +8,7 @@ import com.github.javaparser.JavaParser
 import com.github.javaparser.ParserConfiguration
 import com.github.javaparser.ast.CompilationUnit
 import com.github.javaparser.ast.expr.AnnotationExpr
+import com.github.javaparser.ast.expr.FieldAccessExpr
 import com.github.javaparser.ast.expr.MethodCallExpr
 import com.github.javaparser.ast.type.ClassOrInterfaceType
 import com.github.javaparser.symbolsolver.JavaSymbolSolver
@@ -41,6 +42,7 @@ class UsedApiLocator(val path: String,
                             val usedMethods = findMethodUsage(definitions.methods, parseResult.result.toNullable(), relativeFileName)
                             val usedClasses = findClassUsage(definitions.classes, parseResult.result.toNullable(), relativeFileName)
                             val usedAnnotations = findAnnotationUsage(definitions.annotations, parseResult.result.toNullable(), relativeFileName)
+                            val usedFields = findFieldsUsage(definitions.fields, parseResult.result.toNullable(), relativeFileName)
                             usedMethods.union(usedClasses).union(usedAnnotations)
                         } else {
                             setOf()
@@ -103,6 +105,15 @@ class UsedApiLocator(val path: String,
     private fun findClassUsage(classes: Set<String>, parseResult: CompilationUnit?, relativeFileName: String): Set<String> {
         val a = parseResult?.findAll(ClassOrInterfaceType::class.java) ?: listOf()
         return a.filter { try {  classes.contains(it.resolve().qualifiedName) } catch (e: Exception) { false } }
+                .map {
+                    "$relativeFileName:${it.range.get().begin.line}"
+                }
+                .toSet()
+    }
+
+    private fun findFieldsUsage(fields: Set<String>, parseResult: CompilationUnit?, relativeFileName: String): Set<String> {
+        val a = parseResult?.findAll(FieldAccessExpr::class.java) ?: listOf()
+        return a.filter { try {  fields.contains(it.resolve().name) } catch (e: Exception) { false } }
                 .map {
                     "$relativeFileName:${it.range.get().begin.line}"
                 }
