@@ -29,8 +29,14 @@ class UsedApiLocator(val path: String,
                      val definitionsFile: String) {
     fun locate(): Set<String> {
         val javaParser = getJavaParser(languageLevel);
-        val sourceFiles: List<String> = files?.split(",") ?: getJavaFiles(path + File.separator + sourcePath,
+        val testFolder = path + File.separator + testSourcePath
+        val hasTests = File(testFolder).exists();
+        val sourceFiles = if (hasTests) {
+            files?.split(",") ?: getJavaFiles(path + File.separator + sourcePath,
                     path + File.separator + testSourcePath)
+        } else {
+            files?.split(",") ?: getJavaFiles(path + File.separator + sourcePath)
+        }
         val definitionsFile = File(definitionsFile)
         val definitions = Gson().fromJson<ApiDefinition>(definitionsFile.readText(), ApiDefinition::class.java)
         return sourceFiles
@@ -58,12 +64,16 @@ class UsedApiLocator(val path: String,
         val reflectionTypeSolver = ReflectionTypeSolver()
         reflectionTypeSolver.parent = reflectionTypeSolver
         val mainJavaParserTypeSolver = JavaParserTypeSolver(File(path + File.separator + sourcePath))
-        val testJavaParserTypeSolver = JavaParserTypeSolver(File(path + File.separator + testSourcePath))
+        val testFolder = path + File.separator + testSourcePath
+        val hasTests = File(testFolder).exists();
 
         val combinedSolver = CombinedTypeSolver()
         combinedSolver.add(reflectionTypeSolver)
         combinedSolver.add(mainJavaParserTypeSolver)
-        combinedSolver.add(testJavaParserTypeSolver)
+        if(hasTests) {
+            val testJavaParserTypeSolver = JavaParserTypeSolver(File(path + File.separator + testSourcePath))
+            combinedSolver.add(testJavaParserTypeSolver)
+        }
         val resolver: ClasspathResolver
         if ("gradle" == build) {
             resolver = GradleClassPathResolver()
