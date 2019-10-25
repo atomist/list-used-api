@@ -21,22 +21,20 @@ import java.io.File
 import java.io.IOException
 
 class UsedApiLocator(val path: String,
-                     val sourcePath: String,
-                     val testSourcePath: String,
+                     val sourcePaths: List<String>,
                      val build: String,
                      val files: String?,
                      val languageLevel: String,
                      val definitionsFile: String) {
     fun locate(): Set<String> {
         val javaParser = getJavaParser(languageLevel);
-        val testFolder = path + File.separator + testSourcePath
-        val hasTests = File(testFolder).exists();
-        val sourceFiles = if (hasTests) {
-            files?.split(",") ?: getJavaFiles(path + File.separator + sourcePath,
-                    path + File.separator + testSourcePath)
-        } else {
-            files?.split(",") ?: getJavaFiles(path + File.separator + sourcePath)
-        }
+        val sourceFiles = sourcePaths
+                .filter {
+                    File(it).exists()
+                }
+                .flatMap {
+                    files?.split(",") ?: getJavaFiles(it)
+                }
         val definitionsFile = File(definitionsFile)
         val definitions = Gson().fromJson<ApiDefinition>(definitionsFile.readText(), ApiDefinition::class.java)
         return sourceFiles
@@ -63,17 +61,16 @@ class UsedApiLocator(val path: String,
     private fun getJavaParser(languageLevel: String): JavaParser {
         val reflectionTypeSolver = ReflectionTypeSolver()
         reflectionTypeSolver.parent = reflectionTypeSolver
-        val mainJavaParserTypeSolver = JavaParserTypeSolver(File(path + File.separator + sourcePath))
-        val testFolder = path + File.separator + testSourcePath
-        val hasTests = File(testFolder).exists();
 
         val combinedSolver = CombinedTypeSolver()
         combinedSolver.add(reflectionTypeSolver)
-        combinedSolver.add(mainJavaParserTypeSolver)
-        if(hasTests) {
-            val testJavaParserTypeSolver = JavaParserTypeSolver(File(path + File.separator + testSourcePath))
-            combinedSolver.add(testJavaParserTypeSolver)
-        }
+        sourcePaths
+                .filter {
+                    File(it).exists()
+                }
+                .forEach {
+                    combinedSolver.add(JavaParserTypeSolver(File(it)))
+                }
         val resolver: ClasspathResolver
         if ("gradle" == build) {
             resolver = GradleClassPathResolver()
