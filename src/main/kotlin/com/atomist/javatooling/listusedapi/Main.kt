@@ -26,7 +26,7 @@ class ListUsedApi : CliktCommand() {
     override fun run() {
         val gson = GsonBuilder().setPrettyPrinting().create()
         if(definitions.isNotEmpty()) {
-            val usedApiLocator = UsedApiLocator(path, build, languageLevel, definitions!!)
+            val usedApiLocator = UsedApiLocator(path, build, languageLevel, definitions)
             val api = usedApiLocator.locate();
             if (outputFile != null && outputFile!!.isNotEmpty()) {
                 val output = File(outputFile!!);

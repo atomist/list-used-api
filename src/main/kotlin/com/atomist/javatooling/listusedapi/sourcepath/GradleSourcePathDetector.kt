@@ -17,16 +17,16 @@ allprojects {
 }
 """
 
-    override fun getSourcePaths(projectPath: String): Set<String> {
+    override fun getSourcePaths(path: String): Set<String> {
         val initGradle = File.createTempFile("init", ".gradle")
         FileWriter(initGradle).use { writer ->
             writer.append(INIT_SCRIPT)
             writer.flush()
         }
-        val output = ("gradle --init-script " + initGradle.absolutePath + " printSourceSets").runCommand(File(projectPath))
+        val output = ("gradle --init-script " + initGradle.absolutePath + " printSourceSets").runCommand(File(path))
         val regex = Regex("sourcepaths=(.*)")
         return regex.findAll(output!!)
-                .flatMap { r -> r.groups[1]!!.value.splitToSequence(";") }
+                .flatMap { r -> r.groups[1]!!.value.splitToSequence(",") }
                 .toSet()
     }
 }
