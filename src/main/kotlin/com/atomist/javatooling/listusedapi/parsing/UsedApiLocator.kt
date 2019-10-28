@@ -28,10 +28,11 @@ class UsedApiLocator(val path: String,
                      val languageLevel: String,
                      val definitionsFile: String) {
     fun locate(): Set<String> {
-        val sourceFiles = getSourcePaths(path)
-        val javaParser = getJavaParser(languageLevel, sourceFiles);
+        val sourceFilePaths = getSourcePaths(path)
+        val javaParser = getJavaParser(languageLevel, sourceFilePaths);
         val definitionsFile = File(definitionsFile)
         val definitions = Gson().fromJson<ApiDefinition>(definitionsFile.readText(), ApiDefinition::class.java)
+        val sourceFiles = getJavaFiles(*(sourceFilePaths.toTypedArray()));
         return sourceFiles
                 .map { file ->
                     try {
@@ -53,7 +54,7 @@ class UsedApiLocator(val path: String,
                 .reduce { a, b -> a.union(b) }
     }
 
-    private fun getSourcePaths(path: String): List<String> {
+    private fun getSourcePaths(path: String): Set<String> {
         val resolver: SourcePathDetector
         if ("gradle" == build) {
             resolver = GradleSourcePathDetector()
@@ -65,7 +66,7 @@ class UsedApiLocator(val path: String,
         return resolver.getSourcePaths(path);
     }
 
-    private fun getJavaParser(languageLevel: String, sourcePaths: List<String>): JavaParser {
+    private fun getJavaParser(languageLevel: String, sourcePaths: Set<String>): JavaParser {
         val reflectionTypeSolver = ReflectionTypeSolver()
         reflectionTypeSolver.parent = reflectionTypeSolver
 

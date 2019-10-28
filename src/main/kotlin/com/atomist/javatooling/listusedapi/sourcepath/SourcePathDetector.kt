@@ -1,5 +1,5 @@
 package com.atomist.javatooling.listusedapi.sourcepath
 
 interface SourcePathDetector {
-    fun getSourcePaths(path: String): List<String>
+    fun getSourcePaths(path: String): Set<String>
 }
