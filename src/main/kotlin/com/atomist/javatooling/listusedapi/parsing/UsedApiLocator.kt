@@ -3,6 +3,9 @@ package com.atomist.javatooling.listusedapi.parsing
 import com.atomist.javatooling.listusedapi.classpath.ClasspathResolver
 import com.atomist.javatooling.listusedapi.classpath.GradleClassPathResolver
 import com.atomist.javatooling.listusedapi.classpath.MavenClassPathResolver
+import com.atomist.javatooling.listusedapi.sourcepath.GradleSourcePathDetector
+import com.atomist.javatooling.listusedapi.sourcepath.MavenSourcePathDetector
+import com.atomist.javatooling.listusedapi.sourcepath.SourcePathDetector
 import com.atomist.javatooling.listusedapi.toNullable
 import com.github.javaparser.JavaParser
 import com.github.javaparser.ParserConfiguration
@@ -21,20 +24,12 @@ import java.io.File
 import java.io.IOException
 
 class UsedApiLocator(val path: String,
-                     val sourcePaths: List<String>,
                      val build: String,
-                     val files: String?,
                      val languageLevel: String,
                      val definitionsFile: String) {
     fun locate(): Set<String> {
-        val javaParser = getJavaParser(languageLevel);
-        val sourceFiles = sourcePaths
-                .filter {
-                    File(it).exists()
-                }
-                .flatMap {
-                    files?.split(",") ?: getJavaFiles(it)
-                }
+        val sourceFiles = getSourcePaths(path)
+        val javaParser = getJavaParser(languageLevel, sourceFiles);
         val definitionsFile = File(definitionsFile)
         val definitions = Gson().fromJson<ApiDefinition>(definitionsFile.readText(), ApiDefinition::class.java)
         return sourceFiles
@@ -58,7 +53,19 @@ class UsedApiLocator(val path: String,
                 .reduce { a, b -> a.union(b) }
     }
 
-    private fun getJavaParser(languageLevel: String): JavaParser {
+    private fun getSourcePaths(path: String): List<String> {
+        val resolver: SourcePathDetector
+        if ("gradle" == build) {
+            resolver = GradleSourcePathDetector()
+        } else if ("maven" == build) {
+            resolver = MavenSourcePathDetector()
+        } else {
+            throw IllegalArgumentException("Unknown build system: " + build)
+        }
+        return resolver.getSourcePaths(path);
+    }
+
+    private fun getJavaParser(languageLevel: String, sourcePaths: List<String>): JavaParser {
         val reflectionTypeSolver = ReflectionTypeSolver()
         reflectionTypeSolver.parent = reflectionTypeSolver
 

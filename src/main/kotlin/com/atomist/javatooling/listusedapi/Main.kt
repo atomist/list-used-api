@@ -18,10 +18,7 @@ private val logger = LoggerFactory.getLogger("com.atomist.javatooling.listusedap
 
 class ListUsedApi : CliktCommand() {
     val path: String by option(help = "Project root path").required()
-    val srcFolder: String by option(help = "Sources path").default("src/main/java")
-    val testSourceFolder: String by option(help = "Test sources path").default("src/test/java")
     val build: String by option(help = "Build system").choice("gradle", "maven").default("gradle")
-    val files: String? by option(help = "Specific files")
     val languageLevel: String by option(help = "Language level").choice("8", "9", "10", "11", "12", "13").default("8")
     val definitions: String by option(help = "JSON file with definition to look for").required()
     val outputFile: String? by option(help = "Output file name")
@@ -29,7 +26,7 @@ class ListUsedApi : CliktCommand() {
     override fun run() {
         val gson = GsonBuilder().setPrettyPrinting().create()
         if(definitions.isNotEmpty()) {
-            val usedApiLocator = UsedApiLocator(path, srcFolder, testSourceFolder, build, files, languageLevel, definitions!!)
+            val usedApiLocator = UsedApiLocator(path, build, languageLevel, definitions!!)
             val api = usedApiLocator.locate();
             if (outputFile != null && outputFile!!.isNotEmpty()) {
                 val output = File(outputFile!!);
