@@ -7,7 +7,7 @@ import java.io.FileWriter
 class GradleSourcePathDetector: SourcePathDetector {
     private val INIT_SCRIPT = """
 allprojects {
-    tasks.register("printSourceSets") {
+    task printSourceSets {
         doLast {
             println "sourcepaths:" + project.sourceSets.collectMany {
                it.getAllJava().getSrcDirTrees().collect { it.dir } 

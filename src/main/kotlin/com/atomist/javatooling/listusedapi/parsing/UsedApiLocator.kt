@@ -47,7 +47,7 @@ class UsedApiLocator(val path: String,
                         } else {
                             setOf()
                         }
-                    } catch (e: IOException) {
+                    } catch (e: Exception) {
                         setOf<String>()
                     }
                 }
