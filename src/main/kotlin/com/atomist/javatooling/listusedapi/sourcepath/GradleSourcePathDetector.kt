@@ -24,7 +24,7 @@ allprojects {
             writer.flush()
         }
         val output = ("gradle --init-script " + initGradle.absolutePath + " printSourceSets").runCommand(File(path))
-        val regex = Regex("sourcepaths=(.*)")
+        val regex = Regex("sourcepaths[=:](.*)")
         return regex.findAll(output!!)
                 .flatMap { r -> r.groups[1]!!.value.splitToSequence(",") }
                 .toSet()
