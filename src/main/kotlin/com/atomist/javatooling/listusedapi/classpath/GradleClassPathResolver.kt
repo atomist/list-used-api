@@ -3,14 +3,15 @@ package com.atomist.javatooling.listusedapi.classpath
 import java.io.*
 
 class GradleClassPathResolver : ClasspathResolver {
-    private val INIT_SCRIPT = """allprojects {
-	apply plugin: "java"
-	task listCompilePath(dependsOn: configurations.compileClasspath) {
-		doLast {
-			println "classpath=${"$"}{configurations.testCompileClasspath.collect { File file -> file }.join(';')}"
-		}
-	}
-}
+    private val INIT_SCRIPT = """
+    allprojects {
+        task listCompileClasspath {
+            doLast {
+                if(configurations.testCompileClasspath)
+                println "classpath=${'$'}{configurations.testCompileClasspath.collect { File file -> file }.join(';')}"
+            }
+        }
+    }
 """
 
     override fun resolveCompileClasspath(projectPath: String): Set<String> {
