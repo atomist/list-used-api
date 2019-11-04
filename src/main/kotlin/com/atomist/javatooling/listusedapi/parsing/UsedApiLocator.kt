@@ -22,6 +22,7 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeS
 import com.google.gson.Gson
 import java.io.File
 import java.io.IOException
+import java.util.*
 
 class UsedApiLocator(val path: String,
                      val build: String,
@@ -51,7 +52,9 @@ class UsedApiLocator(val path: String,
                         setOf<String>()
                     }
                 }
-                .reduce { a, b -> a.union(b) }
+                .takeIf{ it.isNotEmpty() }
+                ?.reduce { a, b -> a.union(b) }
+                ?: Collections.emptySet()
     }
 
     private fun getSourcePaths(path: String): Set<String> {
@@ -101,7 +104,10 @@ class UsedApiLocator(val path: String,
 
     private fun findMethodUsage(methods: Set<String>, parseResult: CompilationUnit?, relativeFileName: String): Set<String> {
         val m = parseResult?.findAll(MethodCallExpr::class.java) ?: listOf()
-        return m.filter { try {  methods.contains(it.resolve().qualifiedSignature) } catch (e: Exception) { false } }
+        return m.filter { try {  methods.contains(it.resolve().qualifiedSignature) } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        } }
                 .map {
                     "$relativeFileName:${it.range.get().begin.line}"
                 }
