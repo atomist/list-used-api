@@ -11,7 +11,6 @@ class GradleClassPathResolver : ClasspathResolver {
                 println "classpath=${'$'}{configurations.testCompileClasspath.collect { File file -> file }.join(';')}"
             }
         }
-        listCompileClasspath.dependsOn assemble
     }
 """
 

@@ -1,0 +1,8 @@
+allprojects {
+    task listCompileClasspath {
+        doLast {
+            if(configurations.testCompileClasspath)
+                println "classpath=${'$'}${configurations.testCompileClasspath.collect { File file -> file }.join(';')}"
+        }
+    }
+}
