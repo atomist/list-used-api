@@ -1,7 +1,6 @@
 package com.atomist.javatooling.listusedapi.classpath
 
 import java.io.*
-import java.lang.RuntimeException
 
 class GradleClassPathResolver : ClasspathResolver {
     private val INIT_SCRIPT = """
@@ -12,6 +11,7 @@ class GradleClassPathResolver : ClasspathResolver {
                 println "classpath=${'$'}{configurations.testCompileClasspath.collect { File file -> file }.join(';')}"
             }
         }
+        listCompileClasspath.dependsOn assemble
     }
 """
 
@@ -22,7 +22,7 @@ class GradleClassPathResolver : ClasspathResolver {
             writer.flush()
         }
         val wrapperPath = getWrapperPath(projectPath);
-        val output = ("$wrapperPath --init-script " + initGradle.absolutePath + " listCompileClasspath").runCommand(File(projectPath))
+        val output = ("$wrapperPath --init-script " + initGradle.absolutePath + " assemble listCompileClasspath").runCommand(File(projectPath))
         val regex = Regex("classpath[:=](.*)")
         return regex.findAll(output!!)
                 .flatMap { r -> r.groups[1]!!.value.splitToSequence(";") }
