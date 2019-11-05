@@ -1,6 +1,7 @@
 package com.atomist.javatooling.listusedapi.classpath
 
 import java.io.*
+import java.util.stream.Collectors.toSet
 
 class GradleClassPathResolver : ClasspathResolver {
     private val INIT_SCRIPT = """
@@ -8,13 +9,13 @@ class GradleClassPathResolver : ClasspathResolver {
         task listCompileClasspath {
             doLast {
                 if(configurations.testCompileClasspath)
-                println "classpath=${'$'}{configurations.testCompileClasspath.collect { File file -> file }.join(';')}"
+                println "classpath{${'$'}{project.name}}=${'$'}{configurations.testCompileClasspath.collect { File file -> file }.join(';')}"
             }
         }
     }
 """
 
-    override fun resolveCompileClasspath(projectPath: String): Set<String> {
+    override fun resolveCompileClasspaths(projectPath: String): Set<ModuleClasspath> {
         val initGradle = File.createTempFile("init", ".gradle")
         FileWriter(initGradle).use { writer ->
             writer.append(INIT_SCRIPT)
@@ -22,9 +23,10 @@ class GradleClassPathResolver : ClasspathResolver {
         }
         val wrapperPath = getWrapperPath(projectPath);
         val output = ("$wrapperPath --init-script " + initGradle.absolutePath + " assemble listCompileClasspath").runCommand(File(projectPath))
-        val regex = Regex("classpath[:=](.*)")
+        val regex = Regex("classpath\\{(.*)\\}[:=](.*)")
+
         return regex.findAll(output!!)
-                .flatMap { r -> r.groups[1]!!.value.splitToSequence(";") }
+                .map { r -> ModuleClasspath(r.groups[1]!!.value, r.groups[2]!!.value.splitToSequence(";").toSet()) }
                 .toSet()
     }
 

@@ -5,6 +5,7 @@ import com.atomist.javatooling.listusedapi.classpath.GradleClassPathResolver
 import com.atomist.javatooling.listusedapi.classpath.MavenClassPathResolver
 import com.atomist.javatooling.listusedapi.sourcepath.GradleSourcePathDetector
 import com.atomist.javatooling.listusedapi.sourcepath.MavenSourcePathDetector
+import com.atomist.javatooling.listusedapi.sourcepath.ModuleSourcePath
 import com.atomist.javatooling.listusedapi.sourcepath.SourcePathDetector
 import com.atomist.javatooling.listusedapi.toNullable
 import com.github.javaparser.JavaParser
@@ -21,7 +22,6 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeS
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver
 import com.google.gson.Gson
 import java.io.File
-import java.io.IOException
 import java.util.*
 
 class UsedApiLocator(val path: String,
@@ -30,34 +30,39 @@ class UsedApiLocator(val path: String,
                      val definitionsFile: String) {
     fun locate(): Set<String> {
         val sourceFilePaths = getSourcePaths(path)
-        val javaParser = getJavaParser(languageLevel, sourceFilePaths);
-        val definitionsFile = File(definitionsFile)
-        val definitions = Gson().fromJson<ApiDefinition>(definitionsFile.readText(), ApiDefinition::class.java)
-        val sourceFiles = getJavaFiles(*(sourceFilePaths.toTypedArray()));
-        return sourceFiles
-                .map { file ->
-                    try {
-                        val parseResult = javaParser.parse(File(file))
-                        return@map if (parseResult.isSuccessful) {
-                            val relativeFileName = file.substring(path.length + 1)
-                            val usedMethods = findMethodUsage(definitions.methods, parseResult.result.toNullable(), relativeFileName)
-                            val usedClasses = findClassUsage(definitions.classes, parseResult.result.toNullable(), relativeFileName)
-                            val usedAnnotations = findAnnotationUsage(definitions.annotations, parseResult.result.toNullable(), relativeFileName)
-                            val usedFields = findFieldsUsage(definitions.fields, parseResult.result.toNullable(), relativeFileName)
-                            usedMethods.union(usedClasses).union(usedAnnotations)
-                        } else {
-                            setOf()
-                        }
-                    } catch (e: Exception) {
-                        setOf<String>()
-                    }
+        return sourceFilePaths
+                .map {
+                    val javaParser = getJavaParser(languageLevel, it);
+                    val definitionsFile = File(definitionsFile)
+                    val definitions = Gson().fromJson<ApiDefinition>(definitionsFile.readText(), ApiDefinition::class.java)
+                    val sourceFiles = getJavaFiles(*(it.sourcePaths.toTypedArray()));
+                    sourceFiles
+                            .map { file ->
+                                try {
+                                    val parseResult = javaParser.parse(File(file))
+                                    if (parseResult.isSuccessful) {
+                                        val relativeFileName = file.substring(path.length + 1)
+                                        val usedMethods = findMethodUsage(definitions.methods, parseResult.result.toNullable(), relativeFileName)
+                                        val usedClasses = findClassUsage(definitions.classes, parseResult.result.toNullable(), relativeFileName)
+                                        val usedAnnotations = findAnnotationUsage(definitions.annotations, parseResult.result.toNullable(), relativeFileName)
+                                        val usedFields = findFieldsUsage(definitions.fields, parseResult.result.toNullable(), relativeFileName)
+                                        usedMethods.union(usedClasses).union(usedAnnotations)
+                                    } else {
+                                        setOf()
+                                    }
+                                } catch (e: Exception) {
+                                    setOf<String>()
+                                }
+                            }
+                            .takeIf { it.isNotEmpty() }
+                            ?.reduce { a, b -> a.union(b) }
+                            ?: Collections.emptySet()
                 }
-                .takeIf{ it.isNotEmpty() }
-                ?.reduce { a, b -> a.union(b) }
-                ?: Collections.emptySet()
+                .flatten()
+                .toSet();
     }
 
-    private fun getSourcePaths(path: String): Set<String> {
+    private fun getSourcePaths(path: String): Set<ModuleSourcePath> {
         val resolver: SourcePathDetector
         if ("gradle" == build) {
             resolver = GradleSourcePathDetector()
@@ -69,13 +74,13 @@ class UsedApiLocator(val path: String,
         return resolver.getSourcePaths(path);
     }
 
-    private fun getJavaParser(languageLevel: String, sourcePaths: Set<String>): JavaParser {
+    private fun getJavaParser(languageLevel: String, sourcePath: ModuleSourcePath): JavaParser {
         val reflectionTypeSolver = ReflectionTypeSolver()
         reflectionTypeSolver.parent = reflectionTypeSolver
 
         val combinedSolver = CombinedTypeSolver()
         combinedSolver.add(reflectionTypeSolver)
-        sourcePaths
+        sourcePath.sourcePaths
                 .filter {
                     File(it).exists()
                 }
@@ -90,7 +95,8 @@ class UsedApiLocator(val path: String,
         } else {
             throw IllegalArgumentException("Unknown build system: " + build)
         }
-        resolver.resolveCompileClasspath(path)
+        resolver.resolveCompileClasspaths(path)
+                .single { it.module.equals(sourcePath.module) }.classpath
                 .filter { d -> d.endsWith(".jar") }
                 .map(JarTypeSolver::getJarTypeSolver)
                 .forEach { combinedSolver.add(it) }
@@ -104,10 +110,14 @@ class UsedApiLocator(val path: String,
 
     private fun findMethodUsage(methods: Set<String>, parseResult: CompilationUnit?, relativeFileName: String): Set<String> {
         val m = parseResult?.findAll(MethodCallExpr::class.java) ?: listOf()
-        return m.filter { try {  methods.contains(it.resolve().qualifiedSignature) } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        } }
+        return m.filter {
+            try {
+                methods.contains(it.resolve().qualifiedSignature)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+        }
                 .map {
                     "$relativeFileName:${it.range.get().begin.line}"
                 }
@@ -116,7 +126,13 @@ class UsedApiLocator(val path: String,
 
     private fun findAnnotationUsage(annotations: Set<String>, parseResult: CompilationUnit?, relativeFileName: String): Set<String> {
         val a = parseResult?.findAll(AnnotationExpr::class.java) ?: listOf()
-        return a.filter { try {  annotations.contains(it.resolve().qualifiedName) } catch (e: Exception) { false } }
+        return a.filter {
+            try {
+                annotations.contains(it.resolve().qualifiedName)
+            } catch (e: Exception) {
+                false
+            }
+        }
                 .map {
                     "$relativeFileName:${it.range.get().begin.line}"
                 }
@@ -125,7 +141,13 @@ class UsedApiLocator(val path: String,
 
     private fun findClassUsage(classes: Set<String>, parseResult: CompilationUnit?, relativeFileName: String): Set<String> {
         val a = parseResult?.findAll(ClassOrInterfaceType::class.java) ?: listOf()
-        return a.filter { try {  classes.contains(it.resolve().qualifiedName) } catch (e: Exception) { false } }
+        return a.filter {
+            try {
+                classes.contains(it.resolve().qualifiedName)
+            } catch (e: Exception) {
+                false
+            }
+        }
                 .map {
                     "$relativeFileName:${it.range.get().begin.line}"
                 }
@@ -134,7 +156,13 @@ class UsedApiLocator(val path: String,
 
     private fun findFieldsUsage(fields: Set<String>, parseResult: CompilationUnit?, relativeFileName: String): Set<String> {
         val a = parseResult?.findAll(FieldAccessExpr::class.java) ?: listOf()
-        return a.filter { try {  fields.contains(it.resolve().name) } catch (e: Exception) { false } }
+        return a.filter {
+            try {
+                fields.contains(it.resolve().name)
+            } catch (e: Exception) {
+                false
+            }
+        }
                 .map {
                     "$relativeFileName:${it.range.get().begin.line}"
                 }
@@ -146,7 +174,7 @@ class UsedApiLocator(val path: String,
         paths.forEach { file ->
             val walk = File(file).walkTopDown()
             walk.iterator().forEach { walkFile ->
-                if(walkFile.isFile && walkFile.name.endsWith(".java")) {
+                if (walkFile.isFile && walkFile.name.endsWith(".java")) {
                     files.add(walkFile.absolutePath)
                 }
             }

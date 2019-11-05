@@ -1,5 +1,10 @@
 package com.atomist.javatooling.listusedapi.classpath
 
 interface ClasspathResolver {
-    fun resolveCompileClasspath(projectPath: String): Set<String>
+    fun resolveCompileClasspaths(projectPath: String): Set<ModuleClasspath>
 }
+
+data class ModuleClasspath(
+        val module: String,
+        val classpath: Set<String>
+)

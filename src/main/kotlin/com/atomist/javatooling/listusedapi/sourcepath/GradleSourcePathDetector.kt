@@ -1,5 +1,6 @@
 package com.atomist.javatooling.listusedapi.sourcepath
 
+import com.atomist.javatooling.listusedapi.classpath.ModuleClasspath
 import com.atomist.javatooling.listusedapi.classpath.runCommand
 import java.io.File
 import java.io.FileWriter
@@ -10,7 +11,7 @@ class GradleSourcePathDetector: SourcePathDetector {
     allprojects {
         task printSourceSets {
             doLast {
-                println "sourcepaths:" + project.sourceSets.collectMany {
+                println "sourcepaths{${'$'}{project.name}}=" + project.sourceSets.collectMany {
                    it.getAllJava().getSrcDirTrees().collect { it.dir } 
                 }.join(",")
             }
@@ -18,7 +19,7 @@ class GradleSourcePathDetector: SourcePathDetector {
     }
 """
 
-    override fun getSourcePaths(path: String): Set<String> {
+    override fun getSourcePaths(path: String): Set<ModuleSourcePath> {
         val initGradle = File.createTempFile("init", ".gradle")
         FileWriter(initGradle).use { writer ->
             writer.append(INIT_SCRIPT)
@@ -26,10 +27,10 @@ class GradleSourcePathDetector: SourcePathDetector {
         }
         val wrapperPath = getWrapperPath(path);
         val output = ("$wrapperPath --init-script " + initGradle.absolutePath + " printSourceSets").runCommand(File(path))
-        val regex = Regex("sourcepaths[=:](.*)")
+        val regex = Regex("sourcepaths\\{(.*)\\}[=:](.*)")
         return regex.findAll(output!!)
-                .flatMap { r -> r.groups[1]!!.value.splitToSequence(",") }
-                .toSet()
+                .map { r -> ModuleSourcePath(r.groups[1]!!.value, r.groups[2]!!.value.splitToSequence(";").toSet()) }
+                .toSet();
     }
 
     fun getWrapperPath(path: String) : String {
